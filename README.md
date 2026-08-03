@@ -20,7 +20,7 @@ Developed as a pure runtime Harmony suite, it integrates seamlessly with other m
 Simply open the in-game chat and type any of these commands. All commands are processed locally and won't spam your multiplayer lobby.
 
 ### Player Stats & Movement
-- `/god` - Toggle God Mode (Bypasses all incoming damage, fall damage, and drowning).
+- `/god` - Toggle God Mode (Bypasses all incoming damage, drowning, and fall damage - *yes, I know Muck doesn't have fall damage, but now you are extra safe from it*).
 - `/speed <multiplier>` - Set a custom movement speed multiplier (e.g., `/speed 3` or `/speed 0.5` for slow-motion).
 - `/stamina` - Toggle Infinite Stamina (Bypasses stamina drain completely for running, swimming, and jumping).
 - `/hunger` - Toggle Infinite Hunger (Freezes hunger at 100%).

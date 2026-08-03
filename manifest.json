@@ -1,0 +1,9 @@
+{
+  "name": "DanisNightmare",
+  "version_number": "1.0.0",
+  "website_url": "https://github.com/PlinKuuu/DanisNightmare",
+  "description": "The ultimate cheat and debug command suite. Take control of stamina, speed, drops, and spawn free chests!",
+  "dependencies": [
+    "BepInEx-BepInExPack_Muck-5.4.1100"
+  ]
+}

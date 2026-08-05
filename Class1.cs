@@ -21,6 +21,14 @@ namespace MuckDebugMod
         public static int dropMultiplier = 1;
         public static int powerupMultiplier = 1;
         public static float speedMultiplier = 1f;
+        public static float defensePercent = 0f;
+        public static int structureMultiplier = 1;
+        public static int chestPowerupMultiplier = 1;
+        public static bool peacefulMode = false;
+        public static float mobMultiplier = 1f; // Multiplier for nightly enemy wave sizes and active mob cap (Supports decimals!)
+        public static float enemyHpMultiplier = 1f;
+        public static float enemyDmgMultiplier = 1f;
+        // WHY SO MANY OPTIONS? FUCK
 
         private void Awake()
         {
@@ -49,88 +57,18 @@ namespace MuckDebugMod
                 MonoBehaviour.print("[DANIS_NIGHTMARE] Free chests hack set to: " + chestsFree);
                 return;
             }
-
-            // COMMAND 2: /tier <white/blue/orange/reset>
-            if (baseCommand == "/tier" && parts.Length > 1)
+            // COMMAND 2: /player <help/stamina/speed/hunger/dmg/defense> (Unified player stats & hacks suite)
+            if (baseCommand == "/player")
             {
-                string argument = parts[1].ToLower();
-                if (argument == "white")
-                {
-                    forcedTier = 1;
-                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Chests forced to rarity: <color=white>COMMON (White)<color=white>");
-                }
-                else if (argument == "blue")
-                {
-                    forcedTier = 2;
-                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Chests forced to rarity: <color=cyan>RARE (Blue)<color=white>");
-                }
-                else if (argument == "orange")
-                {
-                    forcedTier = 3;
-                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Chests forced to rarity: <color=orange>LEGENDARY (Orange)<color=white>");
-                }
-                else if (argument == "reset")
-                {
-                    forcedTier = 0;
-                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Chest rarity restored to normal.");
-                }
-                MonoBehaviour.print("[DANIS_NIGHTMARE] Chest rarity (Forced Tier) changed to ID: " + forcedTier);
+                // If there are no arguments, default to "help"
+                string subCommand = (parts.Length > 1) ? parts[1].ToLower() : "help";
+
+                // Routes directly to our separate modular helper
+                ExecutePlayerCommand(subCommand, parts);
                 return;
             }
 
-            // COMMAND 3: /gold <amount>
-            if (baseCommand == "/gold" && parts.Length > 1)
-            {
-                int amount;
-                if (int.TryParse(parts[1], out amount))
-                {
-                    InventoryItem coins = (InventoryItem)ScriptableObject.CreateInstance(typeof(InventoryItem));
-                    coins.Copy(ItemManager.Instance.GetItemByName("Coin"), amount);
-                    InventoryUI.Instance.AddItemToInventory(coins);
-                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Added <color=yellow>" + amount + " gold<color=white> to your inventory.");
-                    MonoBehaviour.print("[DANIS_NIGHTMARE] Spawned " + amount + " physical gold coins in inventory RAM.");
-                }
-                return;
-            }
-
-            // COMMAND 4: /stamina (Infinite Stamina)
-            if (baseCommand == "/stamina")
-            {
-                infiniteStamina = !infiniteStamina;
-                string state = infiniteStamina ? "<color=green>ENABLED<color=white>" : "<color=red>DISABLED<color=white>";
-                ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Infinite Stamina: " + state);
-                MonoBehaviour.print("[DANIS_NIGHTMARE] Infinite Stamina set to: " + infiniteStamina);
-
-                if (infiniteStamina && PlayerStatus.Instance != null)
-                {
-                    PlayerStatus.Instance.stamina = 100f;
-                }
-                return;
-            }
-
-            // COMMAND 5: /speed (Speedhack x3)
-            if (baseCommand == "/speed" && parts.Length > 1)
-            {
-                float amount;
-                if (float.TryParse(parts[1], out amount))
-                {
-                    speedMultiplier = amount;
-                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Speed multiplier set to: <color=orange>x" + amount + "<color=white>");
-                    MonoBehaviour.print("[DANIS_NIGHTMARE] Speed multiplier changed to: x" + amount);
-
-                    if (PlayerStatus.Instance != null)
-                    {
-                        PlayerStatus.Instance.UpdateStats();
-                    }
-                }
-                else
-                {
-                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /speed <multiplier><color=white>");
-                }
-                return;
-            }
-
-            // COMMAND 6: /spawnchest <white/blue/orange>
+            // COMMAND 3: /spawnchest <white/blue/orange>
             if (baseCommand == "/spawnchest" && parts.Length > 1)
             {
                 string type = parts[1].ToLower();
@@ -188,18 +126,625 @@ namespace MuckDebugMod
                 return;
             }
 
-            // COMMAND 7: /god (God Mode)
+            // COMMAND 4: /god (God Mode - Now automatically triggers infinite stamina and hunger!)
             if (baseCommand == "/god")
             {
                 godMode = !godMode;
-                string state = godMode ? "<color=green>ENABLED<color=white>" : "<color=red>DISABLED<color=white>";
-                ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] God Mode: " + state);
-                MonoBehaviour.print("[DANIS_NIGHTMARE] God Mode set to: " + godMode);
+                if (godMode)
+                {
+                    infiniteStamina = true;
+                    infiniteHunger = true;
+
+                    if (PlayerStatus.Instance != null)
+                    {
+                        PlayerStatus.Instance.stamina = 100f;
+                        PlayerStatus.Instance.hunger = 100f;
+                    }
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] God Mode: <color=green>ENABLED (Invincibility, Infinite Stamina & Hunger active!)<color=white>");
+                }
+                else
+                {
+                    infiniteStamina = false;
+                    infiniteHunger = false;
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] God Mode: <color=red>DISABLED<color=white>");
+                }
+                MonoBehaviour.print("[DANIS_NIGHTMARE] God Mode toggled to: " + godMode);
+                return;
+            }
+            // COMMAND 5: /structmult <multiplier> (Multiplies total structures on the next run)
+            if (baseCommand == "/structmult" && parts.Length > 1)
+            {
+                int amount;
+                if (int.TryParse(parts[1], out amount))
+                {
+                    structureMultiplier = amount;
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Structure multiplier set to: <color=orange>x" + amount + "<color=white> (Will apply on the next run!)");
+                    MonoBehaviour.print("[DANIS_NIGHTMARE] Structure multiplier changed to: x" + amount);
+                }
+                else
+                {
+                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /structmult <multiplier><color=white>");
+                }
+                return;
+            }
+            // COMMAND 6: /peaceful (Toggles true Peaceful Mode)
+            if (baseCommand == "/peaceful")
+            {
+                peacefulMode = !peacefulMode;
+                string state = peacefulMode ? "<color=green>ENABLED (Peaceful Mode)<color=white>" : "<color=red>DISABLED<color=white>";
+                ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Peaceful Mode: " + state);
+                MonoBehaviour.print("[DANIS_NIGHTMARE] Peaceful Mode set to: " + peacefulMode);
+                return;
+            }
+            // COMMAND 7: /setday <number> (Sets the current game day, triggering all native difficulty scaling)
+            if (baseCommand == "/setday" && parts.Length > 1)
+            {
+                int targetDay;
+                if (int.TryParse(parts[1], out targetDay))
+                {
+                    if (targetDay < 0) targetDay = 0;
+
+                    // Calculates the new total time keeping the current time of the day intact
+                    float newTotalTime = (float)targetDay + DayCycle.time;
+
+                    // Since totalTime has a private setter, we use Harmony's Traverse to bypass the compiler lock
+                    Traverse.Create(typeof(DayCycle)).Property("totalTime").SetValue(newTotalTime);
+
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Time machine activated! Travelled to: <color=orange>Day " + targetDay + "<color=white>");
+                    MonoBehaviour.print("[DANIS_NIGHTMARE] Time machine triggered. Set total day time to: " + newTotalTime);
+                }
+                else
+                {
+                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /setday <number><color=white>");
+                }
+                return;
+            }
+            // COMMAND 8: /setnight <number> (Sets the current day to X and forces the night loop to start)
+            if (baseCommand == "/setnight" && parts.Length > 1)
+            {
+                int targetDay;
+                if (int.TryParse(parts[1], out targetDay))
+                {
+                    if (targetDay < 0) targetDay = 0;
+
+                    // 1. Force the sky time to exactly 0.51f (where night starts in Muck)
+                    DayCycle.time = 0.51f;
+
+                    // 2. Set the total time keeping the night hour synchronized
+                    float newTotalTime = (float)targetDay + 0.51f;
+                    Traverse.Create(typeof(DayCycle)).Property("totalTime").SetValue(newTotalTime);
+
+                    // 3. Reset the "nightStarted" flag so GameLoop is forced to trigger the night spawns and music natively
+                    if (GameLoop.Instance != null)
+                    {
+                        Traverse.Create(GameLoop.Instance).Field("nightStarted").SetValue(false);
+                    }
+
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Night machine activated! Travelled to: <color=orange>Night " + targetDay + "<color=white>");
+                    MonoBehaviour.print("[DANIS_NIGHTMARE] Night machine triggered. Set night time to: " + newTotalTime);
+                }
+                else
+                {
+                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /setnight <number><color=white>");
+                }
                 return;
             }
 
-            // COMMAND 8: /hunger (Infinite Hunger)
-            if (baseCommand == "/hunger")
+            // COMMAND 9: /kill [enemies/peaceful/all] (Unifies self-kill, mob wipe, and friendly wipe)
+            if (baseCommand == "/kill")
+            {
+                // If there are arguments, we pass the first argument (e.g. "enemies"), otherwise we pass empty string
+                string argument = (parts.Length > 1) ? parts[1].ToLower() : "";
+
+                // We call our separate modular helper function to keep this method clean
+                ExecuteKillCommand(argument);
+                return;
+            }
+            // COMMAND 10: /enemy <help/multhp/multdmg/mult/spawn> (Unified enemy manipulation suite)
+            if (baseCommand == "/enemy")
+            {
+                // If there are no arguments, default to "help"
+                string subCommand = (parts.Length > 1) ? parts[1].ToLower() : "help";
+
+                // Routes directly to our separate modular helper
+                ExecuteEnemyCommand(subCommand, parts, message);
+                return;
+            }
+            // COMMAND 11: /powerup <help/tier/pmult/pdrop/give/spawn> (Unified powerup manipulation suite)
+            if (baseCommand == "/powerup")
+            {
+                // If there are no arguments, default to "help"
+                string subCommand = (parts.Length > 1) ? parts[1].ToLower() : "help";
+
+                // Routes directly to our separate modular helper
+                ExecutePowerupCommand(subCommand, parts, message);
+                return;
+            }
+            // COMMAND 12: /items <help/forcerng/give/dropmult> (Unified item and drop manipulation suite)
+            if (baseCommand == "/item" || baseCommand == "/items")
+            {
+                // If there are no arguments, default to "help"
+                string subCommand = (parts.Length > 1) ? parts[1].ToLower() : "help";
+
+                // Routes directly to our separate modular helper
+                ExecuteItemsCommand(subCommand, parts, message);
+                return;
+            }
+            ChatBox.Instance.SendMessage("<color=red>[DANIS_NIGHTMARE] Unknown command. Commands: /free, /spawnchest, /peaceful, /setday, /setnight, /kill, /enemy, /item, /powerup, /player, /god, /items<color=white>");
+        }
+
+
+        //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+        // Modular helper that purges targets and manually injects their loot tables before destruction
+        public static void ExecuteKillCommand(string argument)
+        {
+            // 1. HELP FLAG: Split into separate clean messages to prevent Muck's UI layout from bugging out
+            if (argument == "help" || argument == "h" || argument == "?")
+            {
+                ChatBox.Instance.SendMessage("<color=yellow>Kill command usage: /kill enemies for enemies or bosses for bosses<color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>Kill command usage: /kill hostiles for al hostiles mobs or peaceful for peaceful mobs<color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>Kill command usage: /kill all<color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>Kill command usage: /kill self<color=white>");
+                return;
+            }
+
+            // 2. SUICIDE: Dani's original self-kill logic
+            if (argument == "" || argument == "self" || argument == "me")
+            {
+                if (PlayerStatus.Instance != null)
+                {
+                    PlayerStatus.Instance.Damage(0, 0, true);
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] You committed suicide.");
+                    MonoBehaviour.print("[DANIS_NIGHTMARE] Player triggered self-kill.");
+                }
+                return;
+            }
+
+            if (MobManager.Instance == null || MobManager.Instance.mobs == null)
+            {
+                ChatBox.Instance.SendMessage("<color=red>[DANIS_NIGHTMARE] Error: No active mobs found in manager.<color=white>");
+                return;
+            }
+
+            int killCount = 0;
+            List<Mob> activeMobs = new List<Mob>(MobManager.Instance.mobs.Values);
+
+            foreach (Mob mob in activeMobs)
+            {
+                if (mob == null) continue;
+
+                string mobName = (mob.mobType != null) ? mob.mobType.name : "";
+                bool isFriendly = (mobName == "Woodman" || mobName == "Cow");
+                bool isBoss = (mob.mobType != null && mob.mobType.boss) || (mob.bossType != Mob.BossType.None);
+                bool isNormalEnemy = !isFriendly && !isBoss;
+
+                bool shouldKill = false;
+
+                if (argument == "all")
+                {
+                    shouldKill = true;
+                }
+                else if (argument == "enemies" && isNormalEnemy)
+                {
+                    shouldKill = true;
+                }
+                else if ((argument == "bosses" || argument == "boss") && isBoss)
+                {
+                    shouldKill = true;
+                }
+                else if (argument == "hostiles" && (isNormalEnemy || isBoss))
+                {
+                    shouldKill = true;
+                }
+                else if (argument == "peaceful" && isFriendly)
+                {
+                    shouldKill = true;
+                }
+
+                if (shouldKill)
+                {
+                    Hitable hitableComponent = mob.GetComponent<Hitable>();
+                    if (hitableComponent != null)
+                    {
+                        // 1. If the entity is a Boss, we spawn its special boss powerup (which can be Blue or Orange)
+                        if (isBoss)
+                        {
+                            LootExtra.BossLoot(mob.transform, mob.bossType);
+                        }
+
+                        // 2. If the entity (Boss OR Normal mob) has a standard loot table, we spawn its normal resource items
+                        if (hitableComponent.dropTable != null)
+                        {
+                            List<InventoryItem> lootList = hitableComponent.dropTable.GetLoot();
+                            if (lootList != null)
+                            {
+                                foreach (InventoryItem item in lootList)
+                                {
+                                    if (item != null)
+                                    {
+                                        int nextId = ItemManager.Instance.GetNextId();
+                                        ItemManager.Instance.DropItemAtPosition(item.id, item.amount, mob.transform.position, nextId);
+                                    }
+                                }
+                            }
+                        }
+
+                        // We set their new HP to 0, triggering native death particles and removing them from the manager
+                        hitableComponent.Damage(0, LocalClient.instance.myId, 0, mob.transform.position);
+                        killCount++;
+                    }
+                }
+            }
+
+            ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Purged <color=orange>" + killCount + "</color> targets (" + argument.ToUpper() + ").");
+            MonoBehaviour.print("[DANIS_NIGHTMARE] Purged " + killCount + " targets of type: " + argument);
+        }
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        // Modular helper that processes all /items sub-commands cleanly
+        public static void ExecuteItemsCommand(string subCommand, string[] parts, string message)
+        {
+            // 1. HELP FLAG: Split into separate clean messages to prevent Muck's UI layout from bugging out
+            if (subCommand == "help" || subCommand == "h" || subCommand == "?")
+            {
+                ChatBox.Instance.SendMessage("<color=yellow>Items command usage: /items forcerng<color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>Items command usage: /items drop <multiplier><color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>Items command usage: /items give <id_or_name> <amount><color=white>");
+                return;
+            }
+
+            // 2. SUB-COMMAND: /items forcerng (Toggles 100% max drops)
+            if (subCommand == "forcerng")
+            {
+                forceRng = !forceRng;
+                string state = forceRng ? "<color=green>ENABLED (100% Max Drop)<color=white>" : "<color=red>DISABLED<color=white>";
+                ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Force RNG: " + state);
+                MonoBehaviour.print("[DANIS_NIGHTMARE] Force RNG (Max Drops) set to: " + forceRng);
+                return;
+            }
+
+            // 3. SUB-COMMAND: /items drop <multiplier> (Multiplies resources/items drop counts)
+            if (subCommand == "drop" && parts.Length > 2)
+            {
+                int amount;
+                if (int.TryParse(parts[2], out amount))
+                {
+                    dropMultiplier = amount;
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Drop multiplier set to: <color=orange>x" + amount + "<color=white>");
+                    MonoBehaviour.print("[DANIS_NIGHTMARE] Drop multiplier changed to: x" + amount);
+                }
+                else
+                {
+                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /items drop <multiplier><color=white>");
+                }
+                return;
+            }
+
+            // 4. SUB-COMMAND: /items give <id_or_name> <amount> (Direct item injection, now unified)
+            if (subCommand == "give" && parts.Length > 1)
+            {
+                // WARNING SYSTEM: Check if the user forgot to specify the amount
+                if (parts.Length == 3)
+                {
+                    bool isExistingItem = false;
+                    int idCheck;
+                    if (int.TryParse(parts[2], out idCheck))
+                    {
+                        isExistingItem = ItemManager.Instance.allItems.ContainsKey(idCheck);
+                    }
+                    else
+                    {
+                        string checkName = parts[2].Replace("_", " ");
+                        foreach (InventoryItem item in ItemManager.Instance.allItems.Values)
+                        {
+                            if (item != null && item.name.Equals(checkName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                isExistingItem = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (isExistingItem)
+                    {
+                        ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Warning: Please specify the amount. Usage: /items give <id_or_name> <amount><color=white>");
+                        return;
+                    }
+                }
+
+                // If they put less than 4 arguments and it wasn't a valid item, it's just a bad command
+                if (parts.Length < 4)
+                {
+                    ChatBox.Instance.SendMessage("<color=red>[DANIS_NIGHTMARE] Error: Invalid command. Usage: /items give <id_or_name> <amount><color=white>");
+                    return;
+                }
+
+                InventoryItem itemTemplate = null;
+                bool usedUnderscore = false;
+
+                // Parse the item (ID or Name)
+                int itemId;
+                if (int.TryParse(parts[2], out itemId))
+                {
+                    if (ItemManager.Instance.allItems.ContainsKey(itemId))
+                    {
+                        itemTemplate = ItemManager.Instance.allItems[itemId];
+                    }
+                }
+                else
+                {
+                    // Reconstruct the full name (handles spaces and replaces underscores)
+                    string searchName = "";
+                    for (int i = 2; i < parts.Length - 1; i++)
+                    {
+                        if (parts[i].Contains("_"))
+                        {
+                            usedUnderscore = true;
+                            parts[i] = parts[i].Replace("_", " ");
+                        }
+                        searchName += parts[i] + " ";
+                    }
+                    searchName = searchName.Trim();
+
+                    // Case-insensitive search
+                    foreach (InventoryItem item in ItemManager.Instance.allItems.Values)
+                    {
+                        if (item != null && item.name.Equals(searchName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            itemTemplate = item;
+                            break;
+                        }
+                    }
+                }
+
+                if (itemTemplate == null)
+                {
+                    ChatBox.Instance.SendMessage("<color=red>[DANIS_NIGHTMARE] Error: Item not found in database!<color=white>");
+                    return;
+                }
+
+                // Parse the amount (the last argument of the command)
+                int amount;
+                if (!int.TryParse(parts[parts.Length - 1], out amount))
+                {
+                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /items give <id_or_name> <amount><color=white>");
+                    return;
+                }
+
+                // Underscore warning
+                if (usedUnderscore)
+                {
+                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Tip: You don't need to use underscores anymore! Regular spaces work fine.<color=white>");
+                }
+
+                // INJECTION: Handle stackable vs non-stackable items
+                if (itemTemplate.stackable && itemTemplate.max > 1)
+                {
+                    // Stackable items (like Wood/Coal) are added normally (Muck handles the split)
+                    InventoryItem newItem = (InventoryItem)ScriptableObject.CreateInstance(typeof(InventoryItem));
+                    newItem.Copy(itemTemplate, amount);
+                    InventoryUI.Instance.AddItemToInventory(newItem);
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Gave <color=yellow>" + amount + "x " + itemTemplate.name + "<color=white> to your inventory.");
+                }
+                else
+                {
+                    // Non-stackable items (like Swords/Armor) are added one-by-one in multiple slots using a loop
+                    int itemsGiven = 0;
+                    for (int k = 0; k < amount; k++)
+                    {
+                        if (InventoryUI.Instance.IsInventoryFull())
+                        {
+                            ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Warning: Inventory full! Stopped giving items.<color=white>");
+                            break;
+                        }
+
+                        InventoryItem newItem = (InventoryItem)ScriptableObject.CreateInstance(typeof(InventoryItem));
+                        newItem.Copy(itemTemplate, 1); // Amount of 1 per cell
+                        InventoryUI.Instance.AddItemToInventory(newItem);
+                        itemsGiven++;
+                    }
+
+                    // Only append the "separate slots" warning if we actually gave more than 1 item
+                    string suffix = (itemsGiven > 1) ? " (separate slots)" : "";
+
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Gave <color=yellow>" + itemsGiven + "x " + itemTemplate.name + "<color=white>" + suffix + " to your inventory.");
+                }
+
+                MonoBehaviour.print("[DANIS_NIGHTMARE] Processed /items give for item: " + itemTemplate.name + " | Requested: " + amount);
+                return;
+            }
+
+            ChatBox.Instance.SendMessage("<color=red>[DANIS_NIGHTMARE] Unknown sub-command. Usage: /items help<color=white>");
+        }
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        // Modular helper that processes all /enemy sub-commands cleanly
+        public static void ExecuteEnemyCommand(string subCommand, string[] parts, string message)
+        {
+            // 1. HELP FLAG: Split into separate clean messages to prevent Muck's UI layout from bugging out
+            if (subCommand == "help" || subCommand == "h" || subCommand == "?")
+            {
+                ChatBox.Instance.SendMessage("<color=yellow>Enemy command usage: /enemy hp <multiplier><color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>Enemy command usage: /enemy dmg <multiplier><color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>Enemy command usage: /enemy amount <multiplier><color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>Enemy command usage: /enemy spawn <name> [amount]<color=white>");
+                return;
+            }
+
+            // 2. SUB-COMMAND: /enemy hp <multiplier> (Custom enemy HP scaling)
+            if (subCommand == "hp" && parts.Length > 2)
+            {
+                float amount;
+                if (float.TryParse(parts[2], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out amount))
+                {
+                    if (amount < 0f) amount = 0f;
+                    enemyHpMultiplier = amount;
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Enemy HP multiplier set to: <color=orange>x" + amount.ToString(System.Globalization.CultureInfo.InvariantCulture) + "<color=white>");
+                    MonoBehaviour.print("[DANIS_NIGHTMARE] Enemy HP multiplier changed to: x" + amount);
+                }
+                else
+                {
+                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /enemy hp <multiplier><color=white>");
+                }
+                return;
+            }
+
+            // 3. SUB-COMMAND: /enemy dmg <multiplier> (Custom enemy damage scaling)
+            if (subCommand == "dmg" && parts.Length > 2)
+            {
+                float amount;
+                if (float.TryParse(parts[2], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out amount))
+                {
+                    if (amount < 0f) amount = 0f;
+                    enemyDmgMultiplier = amount;
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Enemy damage multiplier set to: <color=orange>x" + amount.ToString(System.Globalization.CultureInfo.InvariantCulture) + "<color=white>");
+                    MonoBehaviour.print("[DANIS_NIGHTMARE] Enemy damage multiplier changed to: x" + amount);
+                }
+                else
+                {
+                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /enemy dmg <multiplier><color=white>");
+                }
+                return;
+            }
+
+            // 4. SUB-COMMAND: /enemy amount <multiplier> (The old /mobmult, now integrated into the /enemy suite)
+            if (subCommand == "amount" && parts.Length > 2)
+            {
+                float amount;
+                if (float.TryParse(parts[2], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out amount))
+                {
+                    if (amount < 0f) amount = 0f;
+                    mobMultiplier = amount;
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Mob spawn multiplier set to: <color=orange>x" + amount.ToString(System.Globalization.CultureInfo.InvariantCulture) + "<color=white>");
+                    MonoBehaviour.print("[DANIS_NIGHTMARE] Mob spawn multiplier changed to: x" + amount);
+                }
+                else
+                {
+                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /enemy amount <multiplier><color=white>");
+                }
+                return;
+            }
+
+            // 5. SUB-COMMAND: /enemy spawn <name> [amount] (Materializes any enemy or boss in front of you)
+            if (subCommand == "spawn" && parts.Length > 2)
+            {
+                string searchName = "";
+                int amount = 1;
+
+                // Check if the last argument is a valid integer amount
+                bool hasAmount = int.TryParse(parts[parts.Length - 1], out amount);
+                if (hasAmount)
+                {
+                    if (amount < 1) amount = 1;
+                    // Reconstruct the full name of the enemy excluding the amount argument
+                    for (int i = 2; i < parts.Length - 1; i++)
+                    {
+                        searchName += parts[i] + " ";
+                    }
+                }
+                else
+                {
+                    amount = 1; // Default amount is 1
+                    // Reconstruct the full name of the enemy including the last argument (handles spaces)
+                    for (int i = 2; i < parts.Length; i++)
+                    {
+                        searchName += parts[i] + " ";
+                    }
+                }
+                searchName = searchName.Trim();
+
+                // Search for the enemy inside Muck's active mob spawner list
+                int mobIndex = -1;
+                string exactName = "";
+
+                if (MobSpawner.Instance != null && MobSpawner.Instance.allMobs != null)
+                {
+                    for (int i = 0; i < MobSpawner.Instance.allMobs.Length; i++)
+                    {
+                        MobType type = MobSpawner.Instance.allMobs[i];
+                        if (type != null && type.name.Equals(searchName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            mobIndex = i;
+                            exactName = type.name;
+                            break;
+                        }
+                    }
+                }
+
+                if (mobIndex == -1)
+                {
+                    ChatBox.Instance.SendMessage("<color=red>[DANIS_NIGHTMARE] Error: Enemy '" + searchName + "' not found in database!<color=white>");
+                    return;
+                }
+
+                Vector3 playerPos = GameManager.players[LocalClient.instance.myId].transform.position;
+                Vector3 lookForward = GameManager.players[LocalClient.instance.myId].transform.forward;
+
+                // Calculate spawn position in front of player on the ground (feet level)
+                Vector3 spawnPos = playerPos + (lookForward * 4.5f);
+                spawnPos.y = playerPos.y;
+
+                // Spawn loop
+                for (int k = 0; k < amount; k++)
+                {
+                    int nextId = MobManager.Instance.GetNextId();
+
+                    // Add slight physical offset so multiple entities don't spawn completely overlapping
+                    Vector3 offset = (amount > 1) ? new Vector3((float)(UnityEngine.Random.value - 0.5) * 1.5f, 0f, (float)(UnityEngine.Random.value - 0.5) * 1.5f) : Vector3.zero;
+
+                    // Trigger Muck's native server spawn
+                    MobSpawner.Instance.ServerSpawnNewMob(nextId, mobIndex, spawnPos + offset, 1f, 1f, Mob.BossType.None, -1);
+                }
+
+                ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Spawned <color=orange>" + amount + "x " + exactName + "<color=white> in front of you!");
+                MonoBehaviour.print("[DANIS_NIGHTMARE] Spawned enemy: " + exactName + " | Count: " + amount + " | Position: " + spawnPos);
+                return;
+            }
+
+            ChatBox.Instance.SendMessage("<color=red>[DANIS_NIGHTMARE] Unknown sub-command. Usage: /enemy help<color=white>");
+        }
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        // Modular helper that processes all /player sub-commands cleanly
+        public static void ExecutePlayerCommand(string subCommand, string[] parts)
+        {
+            // 1. HELP FLAG: Split into separate clean messages to prevent Muck's UI layout from bugging out
+            if (subCommand == "help" || subCommand == "h" || subCommand == "?")
+            {
+                ChatBox.Instance.SendMessage("<color=yellow>Player command usage: /player stamina<color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>Player command usage: /player hunger<color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>Player command usage: /player defense <percent_to_avoid><color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>Player command usage: /player speed <multiplier><color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>Player command usage: /player dmg <multiplier><color=white>");
+                return;
+            }
+
+            // 2. SUB-COMMAND: /player stamina (Infinite Stamina toggle)
+            if (subCommand == "stamina")
+            {
+                infiniteStamina = !infiniteStamina;
+                string state = infiniteStamina ? "<color=green>ENABLED<color=white>" : "<color=red>DISABLED<color=white>";
+                ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Infinite Stamina: " + state);
+                MonoBehaviour.print("[DANIS_NIGHTMARE] Infinite Stamina set to: " + infiniteStamina);
+
+                if (infiniteStamina && PlayerStatus.Instance != null)
+                {
+                    PlayerStatus.Instance.stamina = 100f;
+                }
+                return;
+            }
+
+            // 3. SUB-COMMAND: /player hunger (Infinite Hunger toggle)
+            if (subCommand == "hunger")
             {
                 infiniteHunger = !infiniteHunger;
                 string state = infiniteHunger ? "<color=green>ENABLED (Hunger Frozen)<color=white>" : "<color=red>DISABLED<color=white>";
@@ -213,11 +758,61 @@ namespace MuckDebugMod
                 return;
             }
 
-            // COMMAND 9: /dmg <amount>
-            if (baseCommand == "/dmg" && parts.Length > 1)
+            // 4. SUB-COMMAND: /player defense <percent> (Avoids X% of damage)
+            if (subCommand == "defense" && parts.Length > 2)
+            {
+                float amount;
+                if (float.TryParse(parts[2], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out amount))
+                {
+                    if (amount < 0f) amount = 0f;
+                    if (amount > 100f) amount = 100f;
+
+                    defensePercent = amount;
+
+                    if (defensePercent >= 100f)
+                    {
+                        ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] God Mode: <color=green>ENABLED (Avoiding 100% of damage)<color=white>");
+                    }
+                    else
+                    {
+                        ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Defense set to: <color=orange>Avoiding " + amount.ToString(System.Globalization.CultureInfo.InvariantCulture) + "% of damage<color=white>");
+                    }
+                    MonoBehaviour.print("[DANIS_NIGHTMARE] Defense percentage set to: " + amount + "%");
+                }
+                else
+                {
+                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /player defense <percent_to_avoid><color=white>");
+                }
+                return;
+            }
+
+            // 5. SUB-COMMAND: /player speed <multiplier> (Custom Speedhack)
+            if (subCommand == "speed" && parts.Length > 2)
+            {
+                float amount;
+                if (float.TryParse(parts[2], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out amount))
+                {
+                    speedMultiplier = amount;
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Speed multiplier set to: <color=orange>x" + amount.ToString(System.Globalization.CultureInfo.InvariantCulture) + "<color=white>");
+                    MonoBehaviour.print("[DANIS_NIGHTMARE] Speed multiplier changed to: x" + amount);
+
+                    if (PlayerStatus.Instance != null)
+                    {
+                        PlayerStatus.Instance.UpdateStats();
+                    }
+                }
+                else
+                {
+                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /player speed <multiplier><color=white>");
+                }
+                return;
+            }
+
+            // 6. SUB-COMMAND: /player dmg <multiplier> (Custom Damage multiplier)
+            if (subCommand == "dmg" && parts.Length > 2)
             {
                 int multiplier;
-                if (int.TryParse(parts[1], out multiplier))
+                if (int.TryParse(parts[2], out multiplier))
                 {
                     damageMultiplier = multiplier;
                     ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Damage multiplier set to: <color=orange>x" + multiplier + "<color=white>");
@@ -225,43 +820,63 @@ namespace MuckDebugMod
                 }
                 else
                 {
-                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /dmg <multiplier><color=white>");
+                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /player dmg <multiplier><color=white>");
                 }
                 return;
             }
 
-            // COMMAND 10: /forcerng
-            if (baseCommand == "/forcerng")
+            ChatBox.Instance.SendMessage("<color=red>[DANIS_NIGHTMARE] Unknown sub-command. Usage: /player help<color=white>");
+        }
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        // Modular helper that processes all /powerup sub-commands cleanly
+        public static void ExecutePowerupCommand(string subCommand, string[] parts, string message)
+        {
+            // 1. HELP FLAG: Split into separate clean messages to prevent Muck's UI layout from bugging out
+            if (subCommand == "help" || subCommand == "h" || subCommand == "?")
             {
-                forceRng = !forceRng;
-                string state = forceRng ? "<color=green>ENABLED (100% Max Drop)<color=white>" : "<color=red>DISABLED<color=white>";
-                ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Force RNG: " + state);
-                MonoBehaviour.print("[DANIS_NIGHTMARE] Force RNG (Max Drops) set to: " + forceRng);
+                ChatBox.Instance.SendMessage("<color=yellow>Powerup command usage: /powerup tier <rarity><color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>Powerup command usage: /powerup drop <multiplier><color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>Powerup command usage: /powerup pickup <multiplier><color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>Powerup command usage: /powerup give <name> <amount><color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>Powerup command usage: /powerup spawn <name> <amount><color=white>");
                 return;
             }
 
-            // COMMAND 11: /dropmult <amount>
-            if (baseCommand == "/dropmult" && parts.Length > 1)
+            // 2. SUB-COMMAND: /powerup tier <white/blue/orange/reset> (remains identical)
+            if (subCommand == "tier" && parts.Length > 2)
+            {
+                string argument = parts[2].ToLower();
+                if (argument == "white")
+                {
+                    forcedTier = 1;
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Chests forced to rarity: <color=white>COMMON (White)<color=white>");
+                }
+                else if (argument == "blue")
+                {
+                    forcedTier = 2;
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Chests forced to rarity: <color=cyan>RARO (Blue)<color=white>");
+                }
+                else if (argument == "orange")
+                {
+                    forcedTier = 3;
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Chests forced to rarity: <color=orange>LEGENDARIO (Naranja)<color=white>");
+                }
+                else if (argument == "reset")
+                {
+                    forcedTier = 0;
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Chest rarity restored to normal.");
+                }
+                MonoBehaviour.print("[DANIS_NIGHTMARE] Chest rarity (Forced Tier) changed to ID: " + forcedTier);
+                return;
+            }
+
+            // 3. SUB-COMMAND: /powerup pickup <multiplier> (Renamed from pmult!)
+            if (subCommand == "pickup" && parts.Length > 2)
             {
                 int amount;
-                if (int.TryParse(parts[1], out amount))
-                {
-                    dropMultiplier = amount;
-                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Drop multiplier set to: <color=orange>x" + amount + "<color=white>");
-                    MonoBehaviour.print("[DANIS_NIGHTMARE] Drop multiplier changed to: x" + amount);
-                }
-                else
-                {
-                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /dropmult <multiplier><color=white>");
-                }
-                return;
-            }
-
-            // COMMAND 12: /pmult <amount>
-            if (baseCommand == "/pmult" && parts.Length > 1)
-            {
-                int amount;
-                if (int.TryParse(parts[1], out amount))
+                if (int.TryParse(parts[2], out amount))
                 {
                     powerupMultiplier = amount;
                     ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Powerup pickup multiplier: <color=orange>x" + amount + "<color=white>");
@@ -269,22 +884,168 @@ namespace MuckDebugMod
                 }
                 else
                 {
-                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /pmult <multiplier><color=white>");
+                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /powerup pickup <multiplier><color=white>");
                 }
                 return;
             }
 
-            ChatBox.Instance.SendMessage("<color=red>[DANIS_NIGHTMARE] Unknown command. Commands: /free, /tier, /gold, /stamina, /dropmult, /pmult, /forcerng, /speed, /god, /hunger, /dmg, /spawnchest<color=white>");
+            // 4. SUB-COMMAND: /powerup drop <multiplier> (Renamed from pdrop!)
+            if (subCommand == "drop" && parts.Length > 2)
+            {
+                int amount;
+                if (int.TryParse(parts[2], out amount))
+                {
+                    chestPowerupMultiplier = amount;
+                    ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Powerup drop count set to: <color=orange>x" + amount + "<color=white>");
+                    MonoBehaviour.print("[DANIS_NIGHTMARE] Powerup drop count changed to: x" + amount);
+                }
+                else
+                {
+                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /powerup drop <multiplier><color=white>");
+                }
+                return;
+            }
+            // 5. SUB-COMMAND: /powerup give <name> <amount> (Direct inventory injection)
+            if (subCommand == "give" && parts.Length > 3)
+            {
+                // Reconstruct the full name of the powerup (handles spaces like "Sniper Scope")
+                string searchName = "";
+                for (int i = 2; i < parts.Length - 1; i++)
+                {
+                    searchName += parts[i] + " ";
+                }
+                searchName = searchName.Trim();
+
+                int amount;
+                if (!int.TryParse(parts[parts.Length - 1], out amount))
+                {
+                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /powerup give <powerup_name> <amount><color=white>");
+                    return;
+                }
+
+                int powerupId = -1;
+                string exactName = "";
+
+                foreach (KeyValuePair<string, int> entry in ItemManager.Instance.stringToPowerupId)
+                {
+                    if (entry.Key.Equals(searchName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        powerupId = entry.Value;
+                        exactName = entry.Key;
+                        break;
+                    }
+                }
+
+                if (powerupId == -1)
+                {
+                    ChatBox.Instance.SendMessage("<color=red>[DANIS_NIGHTMARE] Error: Powerup '" + searchName + "' not found in RAM!<color=white>");
+                    return;
+                }
+
+                // Inject directly into the private array using Harmony's Traverse
+                int[] playerPowerups = Traverse.Create(PowerupInventory.Instance).Field<int[]>("powerups").Value;
+                playerPowerups[powerupId] += amount;
+
+                // Trigger UI and stats updates natively
+                UiEvents.Instance.AddPowerup(ItemManager.Instance.allPowerups[powerupId]);
+                PlayerStatus.Instance.UpdateStats();
+                PowerupUI.Instance.AddPowerup(powerupId);
+
+                ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Added <color=orange>" + amount + "x " + exactName + "<color=white> directly to your inventory.");
+                MonoBehaviour.print("[DANIS_NIGHTMARE] Injected powerup directly: " + exactName + " | Count: " + amount);
+                return;
+            }
+
+            // 6. SUB-COMMAND: /powerup spawn <name> [amount] (Spawns multiple physical powerups in front of you!)
+            if (subCommand == "spawn" && parts.Length > 2)
+            {
+                string searchName = "";
+                int amount = 1;
+
+                // Check if the last argument is a valid integer amount
+                bool hasAmount = int.TryParse(parts[parts.Length - 1], out amount);
+                if (hasAmount)
+                {
+                    if (amount < 1) amount = 1;
+                    // Reconstruct name excluding the amount argument
+                    for (int i = 2; i < parts.Length - 1; i++)
+                    {
+                        searchName += parts[i] + " ";
+                    }
+                }
+                else
+                {
+                    amount = 1; // Default amount is 1
+                    // Reconstruct name including the last argument
+                    for (int i = 2; i < parts.Length; i++)
+                    {
+                        searchName += parts[i] + " ";
+                    }
+                }
+                searchName = searchName.Trim();
+
+                int foundId = -1;
+                string exactName = "";
+
+                foreach (KeyValuePair<string, int> entry in ItemManager.Instance.stringToPowerupId)
+                {
+                    if (entry.Key.Equals(searchName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        foundId = entry.Value;
+                        exactName = entry.Key;
+                        break;
+                    }
+                }
+
+                if (foundId == -1)
+                {
+                    ChatBox.Instance.SendMessage("<color=red>[DANIS_NIGHTMARE] Error: Powerup '" + searchName + "' not found in RAM!<color=white>");
+                    return;
+                }
+
+                Vector3 playerPos = GameManager.players[LocalClient.instance.myId].transform.position;
+                Vector3 lookForward = GameManager.players[LocalClient.instance.myId].transform.forward;
+
+                Vector3 spawnPos = playerPos + (lookForward * 4.5f);
+                spawnPos.y = playerPos.y; // Snap to ground
+
+                // Spawn loop for multiple items
+                for (int k = 0; k < amount; k++)
+                {
+                    int nextId = ItemManager.Instance.GetNextId();
+
+                    // Add slight physical offset so multiple entities don't spawn completely overlapping
+                    Vector3 offset = (amount > 1) ? new Vector3((float)(UnityEngine.Random.value - 0.5) * 1.5f, 0f, (float)(UnityEngine.Random.value - 0.5) * 1.5f) : Vector3.zero;
+
+                    ItemManager.Instance.DropPowerupAtPosition(foundId, spawnPos + offset, nextId);
+                }
+
+                ChatBox.Instance.SendMessage("[DANIS_NIGHTMARE] Materialized <color=orange>" + amount + "x " + exactName + "<color=white> on the ground!");
+                MonoBehaviour.print("[DANIS_NIGHTMARE] Materialized powerups on the ground: " + exactName + " | Count: " + amount);
+                return;
+            }
+
+            ChatBox.Instance.SendMessage("<color=red>[DANIS_NIGHTMARE] Unknown sub-command. Usage: /powerup help<color=white>");
         }
+
+
     }
 
-    // PARCHE 1: Intercept chat messages for "/" commands and format pickup count
+
+
+    //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+        // PARCHE 1: Intercept chat messages for "/" commands and format pickup count
     [HarmonyPatch(typeof(ChatBox), "SendMessage", new Type[] { typeof(string) })]
     public class ParcheChatDebug
     {
         static bool Prefix(ref string message)
         {
-            if (message.StartsWith("/") && !message.StartsWith("/give"))
+            if (message.StartsWith("/"))
             {
                 Plugin.ProcessDebugCommand(message);
                 return false;
@@ -404,21 +1165,20 @@ namespace MuckDebugMod
         {
             if (Plugin.infiniteStamina)
             {
-                MonoBehaviour.print("[DANIS_NIGHTMARE] Jump detected: Stamina drain bypassed!");
                 return false;
             }
             return true;
         }
     }
 
-    // PARCHE 7: Stable customizable speedhack
-    [HarmonyPatch(typeof(PlayerMovement), "Movement")]
-    public class ParcheVelocidadReal
+    // PATCH 7: Modifies the player's speed multiplier using the game's native physics formulas
+    [HarmonyPatch(typeof(PowerupInventory), "GetSpeedMultiplier")]
+    public class Patch_PlayerSpeedMultiplier
     {
-        static void Prefix(PlayerMovement __instance, ref float ___moveSpeed, ref float ___maxSpeed)
+        static void Postfix(ref float __result)
         {
-            ___moveSpeed = 3500f * Plugin.speedMultiplier;
-            ___maxSpeed = 6.5f * Plugin.speedMultiplier;
+            // Multiplies the final speed limit by our custom speed multiplier dynamically
+            __result *= Plugin.speedMultiplier;
         }
     }
 
@@ -593,4 +1353,284 @@ namespace MuckDebugMod
             __result *= (float)Plugin.damageMultiplier;
         }
     }
+    // PATCH 17: Multiplies the raw movement force with a 50% dampener for smoother control
+    [HarmonyPatch(typeof(PlayerMovement), "Movement")]
+    public class Patch_PlayerMovementForce
+    {
+        static void Prefix(ref float ___moveSpeed)
+        {
+            if (Plugin.speedMultiplier > 1f)
+            {
+                // Multiplica la fuerza con un reductor del 50% para que el "auto" no sea incontrolable
+                ___moveSpeed = 3500f * (Plugin.speedMultiplier * 0.5f);
+            }
+            else
+            {
+                // Si el multiplicador es 1 o menor (camina normal), mantiene la fuerza nativa de Dani
+                ___moveSpeed = 3500f * Plugin.speedMultiplier;
+            }
+        }
+    }
+    // PATCH 18: Defense percentage multiplier (Avoids X% of incoming damage)
+    [HarmonyPatch(typeof(PlayerStatus), "HandleDamage")]
+    public class ParcheDefensa
+    {
+        static void Prefix(ref int damageTaken)
+        {
+            if (Plugin.defensePercent > 0f)
+            {
+                // Calculates the correct damage taken multiplier based on the avoidance percentage
+                float multiplier = (100f - Plugin.defensePercent) / 100f;
+                damageTaken = (int)((float)damageTaken * multiplier);
+            }
+        }
+    }
+    // PATCH 18: Multiplies total spawned structures (shines, camps, ruins) at world generation
+    [HarmonyPatch(typeof(StructureSpawner), "Start")]
+    public class Patch_StructureSpawner
+    {
+        static void Prefix(StructureSpawner __instance)
+        {
+            // Multiplies the base amount (50) by our custom debug multiplier
+            __instance.nShrines *= Plugin.structureMultiplier;
+            MonoBehaviour.print("[DANIS_NIGHTMARE] Spawning " + __instance.nShrines + " total structures (Multiplier: x" + Plugin.structureMultiplier + ")");
+        }
+    }
+    // PATCH 19: Multiplies physical powerups spawned by chests on open
+    [HarmonyPatch(typeof(LootContainerInteract), "ServerExecute")]
+    public class Patch_ChestPowerupCount
+    {
+        static bool Prefix(LootContainerInteract __instance, int fromClient)
+        {
+            if (LocalClient.serverOwner)
+            {
+                // We use our clean /pdrop variable to decide how many powerups to spawn
+                int count = Plugin.chestPowerupMultiplier;
+
+                for (int i = 0; i < count; i++)
+                {
+                    Powerup randomPowerup = ItemManager.Instance.GetRandomPowerup(__instance.white, __instance.blue, __instance.gold);
+                    if (__instance.testPowerup && __instance.powerupToTest != null)
+                    {
+                        randomPowerup = __instance.powerupToTest;
+                    }
+                    int nextId = ItemManager.Instance.GetNextId();
+
+                    // Adds physical offset to make them explode and scatter around on spawn
+                    Vector3 offset = (count > 1) ? new Vector3((float)(UnityEngine.Random.value - 0.5f) * 1.5f, 1.2f, (float)(UnityEngine.Random.value - 0.5f) * 1.5f) : Vector3.zero;
+
+                    ItemManager.Instance.DropPowerupAtPosition(randomPowerup.id, __instance.transform.position + offset, nextId);
+                    ServerSend.DropPowerupAtPosition(randomPowerup.id, nextId, __instance.transform.position + offset);
+                }
+                MonoBehaviour.print("[DANIS_NIGHTMARE] Chest opened. Multiplied powerup drop count: " + count);
+            }
+            return false; // Bypasses Dani's original single-item spawn
+        }
+    }
+    // PATCH 20: Multiplies physical powerups dropped by combat shrines upon completion
+    [HarmonyPatch(typeof(ShrineInteractable), "DropPowerup")]
+    public class Patch_ShrineDrop
+    {
+        static bool Prefix(ShrineInteractable __instance)
+        {
+            if (LocalClient.serverOwner)
+            {
+                int count = Plugin.chestPowerupMultiplier;
+
+                for (int i = 0; i < count; i++)
+                {
+                    // Dani's original shrine drop weights: 30% white, 20% blue, 10% orange (Legendary)
+                    Powerup randomPowerup = ItemManager.Instance.GetRandomPowerup(0.3f, 0.2f, 0.1f);
+                    int nextId = ItemManager.Instance.GetNextId();
+
+                    Vector3 offset = (count > 1) ? new Vector3((float)(UnityEngine.Random.value - 0.5f) * 1.5f, 1.2f, (float)(UnityEngine.Random.value - 0.5f) * 1.5f) : Vector3.zero;
+
+                    ItemManager.Instance.DropPowerupAtPosition(randomPowerup.id, __instance.transform.position + offset, nextId);
+                    ServerSend.DropPowerupAtPosition(randomPowerup.id, nextId, __instance.transform.position + offset);
+                }
+                MonoBehaviour.print("[DANIS_NIGHTMARE] Shrine loot spawned. Multiplied count: " + count);
+            }
+            return false; // Bypasses Dani's original single-item spawn
+        }
+    }
+    // PATCH 21: Multiplies physical powerups dropped by bosses upon death
+    [HarmonyPatch(typeof(LootExtra), "BossLoot")]
+    public class Patch_BossLoot
+    {
+        static bool Prefix(Transform dropPos, Mob.BossType mobType)
+        {
+            if (LocalClient.serverOwner)
+            {
+                int count = Plugin.chestPowerupMultiplier;
+
+                for (int i = 0; i < count; i++)
+                {
+                    // Dani's original boss drop weights: 0% white, 80% blue, 20% orange (Legendary)
+                    Powerup randomPowerup = ItemManager.Instance.GetRandomPowerup(0f, 0.8f, 0.2f);
+                    int nextId = ItemManager.Instance.GetNextId();
+
+                    Vector3 offset = (count > 1) ? new Vector3((float)(UnityEngine.Random.value - 0.5f) * 1.5f, 1.2f, (float)(UnityEngine.Random.value - 0.5f) * 1.5f) : Vector3.zero;
+
+                    ItemManager.Instance.DropPowerupAtPosition(randomPowerup.id, dropPos.position + offset, nextId);
+                    ServerSend.DropPowerupAtPosition(randomPowerup.id, nextId, dropPos.position + offset);
+                }
+                MonoBehaviour.print("[DANIS_NIGHTMARE] Boss loot spawned. Multiplied count: " + count);
+            }
+            return false; // Bypasses Dani's original single-item spawn
+        }
+    }
+    // PATCH 22: Blocks hostile camp spawns during the day but keeps Woodmen and Cows
+    [HarmonyPatch(typeof(MobZone), "ServerSpawnEntity")]
+    public class ParcheMobZone
+    {
+        static bool Prefix(MobZone __instance)
+        {
+            if (Plugin.peacefulMode && __instance.mobType != null)
+            {
+                string mobName = __instance.mobType.name;
+
+                // If it is a friendly Cow or a neutral Woodman, we let it spawn normally
+                if (mobName == "Woodman" || mobName == "Cow")
+                {
+                    return true;
+                }
+
+                // If it is any hostile monster, we bypass and cancel the spawn entirely
+                return false;
+            }
+            return true;
+        }
+    }
+    // PATCH 23: Bypasses random nightly enemy waves without breaking the recursive spawning loop
+    [HarmonyPatch(typeof(GameLoop), "CheckMobSpawns")]
+    public class Patch_NightSpawnsBypass
+    {
+        static bool Prefix(GameLoop __instance, ref Vector2 ___checkMobUpdateInterval)
+        {
+            if (Plugin.peacefulMode)
+            {
+                // We calculate and schedule the next check natively so the loop chain never breaks
+                float num = (float)GameManager.instance.GetPlayersAlive() / 2f;
+                float delay = UnityEngine.Random.Range(___checkMobUpdateInterval.x / num, ___checkMobUpdateInterval.y / num);
+                __instance.Invoke("CheckMobSpawns", delay);
+
+                MonoBehaviour.print("[DANIS_NIGHTMARE] Nightly mob spawn bypassed (Peaceful Mode active).");
+                return false; // Skips the actual 3D spawning of the enemy wave
+            }
+            return true;
+        }
+    }
+    // PATCH 24: Bypasses the mandatory nightly calendar bosses (e.g. Day 5 boss)
+    [HarmonyPatch(typeof(GameLoop), "StartBoss")]
+    public class Patch_NightBossBypass
+    {
+        static bool Prefix()
+        {
+            if (Plugin.peacefulMode)
+            {
+                MonoBehaviour.print("[DANIS_NIGHTMARE] Nightly calendar boss spawn bypassed (Peaceful Mode active).");
+                return false; // Skips spawning the nightly boss
+            }
+            return true;
+        }
+    }
+    // PATCH 25: Dynamically scales the active mob cap in the world based on our multiplier
+    [HarmonyPatch(typeof(GameLoop), "FindMobCap")]
+    public class Patch_MobCap
+    {
+        static void Postfix()
+        {
+            // Multiplies the active mob cap of the world and rounds it safely to an integer
+            GameLoop.currentMobCap = Mathf.RoundToInt((float)GameLoop.currentMobCap * Plugin.mobMultiplier);
+        }
+    }
+    // PATCH 26: Duplicates nightly spawned enemies using a fractional probability algorithm
+    [HarmonyPatch(typeof(GameLoop), "SpawnMob")]
+    public class Patch_SpawnMobMultiplier
+    {
+        static bool Prefix(MobType mob, Vector3 pos, float multiplier, float bossMultiplier, Mob.BossType bossType)
+        {
+            // If the multiplier is normal (1) or peaceful mode is active, we let the normal flow run
+            if (Plugin.mobMultiplier <= 1f || Plugin.peacefulMode)
+            {
+                return true;
+            }
+
+            // Fractional spawning algorithm: calculates base extra and triggers a probability roll for the decimal part
+            int baseExtra = Mathf.FloorToInt(Plugin.mobMultiplier) - 1; // Subtract 1 because the original method is about to spawn 1
+            float decimalPart = Plugin.mobMultiplier - Mathf.Floor(Plugin.mobMultiplier);
+
+            if (UnityEngine.Random.value < decimalPart)
+            {
+                baseExtra++;
+            }
+
+            // Spawn the calculated duplicate clones natively on the server side
+            for (int i = 0; i < baseExtra; i++)
+            {
+                int nextId = MobManager.Instance.GetNextId();
+                MobSpawner.Instance.ServerSpawnNewMob(nextId, mob.id, pos, multiplier, bossMultiplier, bossType, -1);
+            }
+
+            return true; // Let the original SpawnMob run to spawn the main entity
+        }
+    }
+    // PATCH 27: Forces the villager trade prices to display as 0 in the UI when chests are free
+    [HarmonyPatch(typeof(TradeUi), "SetTrade")]
+    public class Patch_TradeUi_SetTrade
+    {
+        static void Prefix(TradeUi __instance, WoodmanTrades.Trade t, bool buy, ref int __state)
+        {
+            __state = t.price; // Saves the original trade price in the Harmony state
+            if (Plugin.chestsFree && buy)
+            {
+                t.price = 0; // Temporarily forces the price to 0 so the UI draws it as free
+            }
+        }
+
+        static void Postfix(TradeUi __instance, WoodmanTrades.Trade t, int __state)
+        {
+            t.price = __state; // Instantly restores the original price in RAM
+        }
+    }
+    // PATCH 28: Forces the actual purchase transaction to cost 0 gold when chests are free
+    [HarmonyPatch(typeof(TradeUi), "BuySell")]
+    public class Patch_TradeUi_BuySell
+    {
+        // We capture the private fields "trade" and "buy" using the three-underscores syntax
+        static void Prefix(TradeUi __instance, ref WoodmanTrades.Trade ___trade, bool ___buy, ref int __state)
+        {
+            __state = ___trade.price; // Saves the original transaction price
+            if (Plugin.chestsFree && ___buy)
+            {
+                ___trade.price = 0; // Temporarily forces the transaction price to 0 during click execution
+            }
+        }
+
+        static void Postfix(TradeUi __instance, ref WoodmanTrades.Trade ___trade, int __state)
+        {
+            ___trade.price = __state; // Instantly restores the original transaction price in RAM
+        }
+    }
+    // PATCH 29: Multiplies native enemy damage scaling dynamically
+    [HarmonyPatch(typeof(GameManager), "MobDamageMultiplier")]
+    public class Patch_MobDamageMultiplier
+    {
+        static void Postfix(ref float __result)
+        {
+            __result *= Plugin.enemyDmgMultiplier;
+        }
+    }
+
+    // PATCH 30: Multiplies native enemy health scaling dynamically
+    [HarmonyPatch(typeof(GameManager), "MobHpMultiplier")]
+    public class Patch_MobHpMultiplier
+    {
+        static void Postfix(ref float __result)
+        {
+            __result *= Plugin.enemyHpMultiplier;
+        }
+    }
+
+
 }

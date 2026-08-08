@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace MuckDebugMod
 {
-    [BepInPlugin("com.plinkuuu.danisnightmare", "Dani's Nightmare", "1.0.0")]
+    [BepInPlugin("com.plinkuuu.danisnightmare", "Dani's Nightmare", "2.1.0")]
     public class Plugin : BaseUnityPlugin
     {
         // Debug state variables
@@ -282,7 +282,7 @@ namespace MuckDebugMod
         public static void ExecuteKillCommand(string argument)
         {
             // 1. HELP FLAG: Split into separate clean messages to prevent Muck's UI layout from bugging out
-            if (argument == "help" || argument == "h" || argument == "?")
+            if (argument == "" || argument == "help" || argument == "h" || argument == "?")
             {
                 ChatBox.Instance.SendMessage("<color=yellow>Kill command usage: /kill enemies for enemies or bosses for bosses<color=white>");
                 ChatBox.Instance.SendMessage("<color=yellow>Kill command usage: /kill hostiles for al hostiles mobs or peaceful for peaceful mobs<color=white>");
@@ -292,7 +292,7 @@ namespace MuckDebugMod
             }
 
             // 2. SUICIDE: Dani's original self-kill logic
-            if (argument == "" || argument == "self" || argument == "me")
+            if (argument == "self" || argument == "me")
             {
                 if (PlayerStatus.Instance != null)
                 {
@@ -386,15 +386,15 @@ namespace MuckDebugMod
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        // Modular helper that processes all /items sub-commands cleanly
+        // Modular helper that processes all /items sub-commands cleanly (With smart /give amount snapping!)
         public static void ExecuteItemsCommand(string subCommand, string[] parts, string message)
         {
             // 1. HELP FLAG: Split into separate clean messages to prevent Muck's UI layout from bugging out
             if (subCommand == "help" || subCommand == "h" || subCommand == "?")
             {
-                ChatBox.Instance.SendMessage("<color=yellow>Items command usage: /items forcerng<color=white>");
-                ChatBox.Instance.SendMessage("<color=yellow>Items command usage: /items drop <multiplier><color=white>");
-                ChatBox.Instance.SendMessage("<color=yellow>Items command usage: /items give <id_or_name> <amount><color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Items command usage: /items forcerng<color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Items command usage: /items drop <multiplier><color=white>");
+                ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Items command usage: /items give <id_or_name> [amount]<color=white>");
                 return;
             }
 
@@ -425,46 +425,11 @@ namespace MuckDebugMod
                 return;
             }
 
-            // 4. SUB-COMMAND: /items give <id_or_name> <amount> (Direct item injection, now unified)
-            if (subCommand == "give" && parts.Length > 1)
+            // 4. SUB-COMMAND: /items give <id_or_name> [amount] (Direct item injection, now with smart default amount!)
+            if (subCommand == "give" && parts.Length > 2)
             {
-                // WARNING SYSTEM: Check if the user forgot to specify the amount
-                if (parts.Length == 3)
-                {
-                    bool isExistingItem = false;
-                    int idCheck;
-                    if (int.TryParse(parts[2], out idCheck))
-                    {
-                        isExistingItem = ItemManager.Instance.allItems.ContainsKey(idCheck);
-                    }
-                    else
-                    {
-                        string checkName = parts[2].Replace("_", " ");
-                        foreach (InventoryItem item in ItemManager.Instance.allItems.Values)
-                        {
-                            if (item != null && item.name.Equals(checkName, StringComparison.OrdinalIgnoreCase))
-                            {
-                                isExistingItem = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (isExistingItem)
-                    {
-                        ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Warning: Please specify the amount. Usage: /items give <id_or_name> <amount><color=white>");
-                        return;
-                    }
-                }
-
-                // If they put less than 4 arguments and it wasn't a valid item, it's just a bad command
-                if (parts.Length < 4)
-                {
-                    ChatBox.Instance.SendMessage("<color=red>[DANIS_NIGHTMARE] Error: Invalid command. Usage: /items give <id_or_name> <amount><color=white>");
-                    return;
-                }
-
                 InventoryItem itemTemplate = null;
+                int amount = 1;
                 bool usedUnderscore = false;
 
                 // Parse the item (ID or Name)
@@ -475,19 +440,46 @@ namespace MuckDebugMod
                     {
                         itemTemplate = ItemManager.Instance.allItems[itemId];
                     }
+
+                    // Parse optional amount for ID (e.g. "/items give 0 50")
+                    if (parts.Length > 3)
+                    {
+                        int.TryParse(parts[3], out amount);
+                    }
                 }
                 else
                 {
-                    // Reconstruct the full name (handles spaces and replaces underscores)
                     string searchName = "";
-                    for (int i = 2; i < parts.Length - 1; i++)
+
+                    // Check if the last argument is a valid integer amount
+                    bool hasAmount = int.TryParse(parts[parts.Length - 1], out amount);
+                    if (hasAmount)
                     {
-                        if (parts[i].Contains("_"))
+                        if (amount < 1) amount = 1;
+                        // Reconstruct the full name of the item excluding the amount argument
+                        for (int i = 2; i < parts.Length - 1; i++)
                         {
-                            usedUnderscore = true;
-                            parts[i] = parts[i].Replace("_", " ");
+                            if (parts[i].Contains("_"))
+                            {
+                                usedUnderscore = true;
+                                parts[i] = parts[i].Replace("_", " ");
+                            }
+                            searchName += parts[i] + " ";
                         }
-                        searchName += parts[i] + " ";
+                    }
+                    else
+                    {
+                        amount = 1; // Default amount is 1
+                        // Reconstruct the full name of the item including the last argument (handles spaces and trailing spaces)
+                        for (int i = 2; i < parts.Length; i++)
+                        {
+                            if (parts[i].Contains("_"))
+                            {
+                                usedUnderscore = true;
+                                parts[i] = parts[i].Replace("_", " ");
+                            }
+                            searchName += parts[i] + " ";
+                        }
                     }
                     searchName = searchName.Trim();
 
@@ -505,14 +497,6 @@ namespace MuckDebugMod
                 if (itemTemplate == null)
                 {
                     ChatBox.Instance.SendMessage("<color=red>[DANIS_NIGHTMARE] Error: Item not found in database!<color=white>");
-                    return;
-                }
-
-                // Parse the amount (the last argument of the command)
-                int amount;
-                if (!int.TryParse(parts[parts.Length - 1], out amount))
-                {
-                    ChatBox.Instance.SendMessage("<color=yellow>[DANIS_NIGHTMARE] Correct usage: /items give <id_or_name> <amount><color=white>");
                     return;
                 }
 
@@ -1039,22 +1023,38 @@ namespace MuckDebugMod
 
 
 
-        // PARCHE 1: Intercept chat messages for "/" commands and format pickup count
-    [HarmonyPatch(typeof(ChatBox), "SendMessage", new Type[] { typeof(string) })]
+    // PATCH 1: Intercepts only custom debug commands inside Muck's native ChatCommand handler
+    [HarmonyPatch(typeof(ChatBox), "ChatCommand")]
     public class ParcheChatDebug
     {
-        static bool Prefix(ref string message)
+        static bool Prefix(string message)
         {
-            if (message.StartsWith("/"))
+            string[] parts = message.Split(' ');
+            string baseCommand = parts[0].ToLower();
+
+            // List of our custom debug commands to intercept
+            List<string> customCommands = new List<string> { "/free", "/god", "/peaceful", "/kill", "/setday", "/setnight", "/spawnchest", "/player", "/powerup", "/items", "/enemy" };
+
+            if (customCommands.Contains(baseCommand))
             {
                 Plugin.ProcessDebugCommand(message);
-                return false;
+                return false; // Bypasses Dani's original commands only if it is one of ours
             }
+            return true; // Let Muck's native commands (/seed, /debug, /ping, /kick) run normally
+        }
+    }
+
+    // PATCH 33: Hijacks the native chat notification when picking up a powerup to display the custom count
+    [HarmonyPatch(typeof(ChatBox), "SendMessage", new Type[] { typeof(string) })]
+    public class Patch_ChatBox_PickupNotification
+    {
+        static void Prefix(ref string message)
+        {
             if (message.StartsWith("Picked up ") && Plugin.powerupMultiplier > 1)
             {
+                // Replaces "Picked up (Juice)" with "Picked up 50x (Juice)" on the fly
                 message = message.Replace("Picked up ", "Picked up " + Plugin.powerupMultiplier + "x ");
             }
-            return true;
         }
     }
 
@@ -1629,6 +1629,171 @@ namespace MuckDebugMod
         static void Postfix(ref float __result)
         {
             __result *= Plugin.enemyHpMultiplier;
+        }
+    }
+
+    // PATCH 31: Expands Muck's native autocomplete command list at startup
+    [HarmonyPatch(typeof(ChatBox), "Awake")]
+    public class Patch_ChatBox_Autocomplete
+    {
+        static void Postfix(ChatBox __instance)
+        {
+            if (__instance.commands != null)
+            {
+                List<string> customCommands = new List<string>(__instance.commands);
+
+                // Add all of your custom main commands to the native list
+                string[] newCommands = { "free", "god", "peaceful", "kill", "setday", "setnight", "spawnchest", "player", "powerup", "items", "enemy" };
+                customCommands.AddRange(newCommands);
+
+                __instance.commands = customCommands.ToArray();
+                MonoBehaviour.print("[DANIS_NIGHTMARE] Injected " + newCommands.Length + " main commands into native autocomplete database.");
+            }
+        }
+    }
+
+    // PATCH 32: Advanced Context-Aware Autocomplete Engine matching exact code.txt command names
+    [HarmonyPatch(typeof(Commands), "PredictCommands")]
+    public class Patch_Commands_Predict
+    {
+        static bool Prefix(Commands __instance, ref string ___suggestedText)
+        {
+            if (!ChatBox.Instance.typing)
+            {
+                return true;
+            }
+
+            string text = __instance.inputField.text;
+            if (text.Length < 1)
+            {
+                return true;
+            }
+
+            string[] parts = text.Split(new char[] { ' ' }, StringSplitOptions.None);
+            if (parts.Length < 1)
+            {
+                return true;
+            }
+
+            string baseCmd = parts[0].ToLower();
+
+            // ==========================================
+            // CASE A: Autocompleting Main Commands (1 word typed, e.g., "/pl" -> "/player")
+            // ==========================================
+            if (parts.Length == 1 && parts[0].StartsWith("/"))
+            {
+                string typedCmd = parts[0].Substring(1).ToLower(); // Removes the "/" (e.g., "pl")
+
+                // Unified list of all vanilla and custom main commands
+                string[] allMainCommands = { "seed", "ping", "debug", "kill", "kick", "free", "god", "peaceful", "setday", "setnight", "spawnchest", "player", "powerup", "items", "enemy" };
+
+                foreach (string cmd in allMainCommands)
+                {
+                    if (cmd.StartsWith(typedCmd))
+                    {
+                        ___suggestedText = "/" + cmd; // Autocompletes the main command in grey text
+                        return false; // Bypasses Dani's original autocomplete loop
+                    }
+                }
+            }
+
+            // ==========================================
+            // CASE B: Autocompleting Sub-Commands (2 words typed, e.g., "/player de" -> "/player defense")
+            // ==========================================
+            if (parts.Length == 2)
+            {
+                string subCmd = parts[1].ToLower();
+                string[] subList = null;
+
+                if (baseCmd == "/player")
+                {
+                    subList = new string[] { "stamina", "hunger", "defense", "speed", "dmg" };
+                }
+                else if (baseCmd == "/powerup")
+                {
+                    // Cleaned to match your exact code.txt sub-commands
+                    subList = new string[] { "tier", "pickup", "drop", "give", "spawn" };
+                }
+                else if (baseCmd == "/items" || baseCmd == "/item")
+                {
+                    // Cleaned to match your exact code.txt sub-commands
+                    subList = new string[] { "forcerng", "drop", "give" };
+                }
+                else if (baseCmd == "/enemy")
+                {
+                    // Cleaned to match your exact code.txt sub-commands
+                    subList = new string[] { "hp", "dmg", "amount", "spawn" };
+                }
+                else if (baseCmd == "/kill")
+                {
+                    // Adds autocomplete suggestions for all of your /kill arguments!
+                    subList = new string[] { "enemies", "bosses", "hostiles", "peaceful", "all", "self" };
+                }
+
+                if (subList != null)
+                {
+                    foreach (string sub in subList)
+                    {
+                        if (sub.StartsWith(subCmd))
+                        {
+                            ___suggestedText = parts[0] + " " + sub;
+                            return false; // Bypasses Dani's original autocomplete
+                        }
+                    }
+                }
+            }
+
+            // ==========================================
+            // CASE C: Autocompleting Item/Powerup/Enemy Names (3+ words typed, e.g., "/powerup spawn sni" -> "/powerup spawn Sniper Scope")
+            // ==========================================
+            if (parts.Length >= 3)
+            {
+                string subCmd = parts[1].ToLower();
+                string typedSearch = "";
+                for (int i = 2; i < parts.Length; i++)
+                {
+                    typedSearch += parts[i] + " ";
+                }
+                typedSearch = typedSearch.Trim().ToLower();
+
+                if (baseCmd == "/powerup" && (subCmd == "spawn" || subCmd == "give"))
+                {
+                    foreach (string powerupName in ItemManager.Instance.stringToPowerupId.Keys)
+                    {
+                        if (powerupName.ToLower().StartsWith(typedSearch))
+                        {
+                            ___suggestedText = parts[0] + " " + parts[1] + " " + powerupName;
+                            return false;
+                        }
+                    }
+                }
+
+                if ((baseCmd == "/items" || baseCmd == "/item") && subCmd == "give")
+                {
+                    foreach (InventoryItem item in ItemManager.Instance.allItems.Values)
+                    {
+                        if (item != null && item.name.ToLower().StartsWith(typedSearch))
+                        {
+                            ___suggestedText = parts[0] + " " + parts[1] + " " + item.name;
+                            return false;
+                        }
+                    }
+                }
+
+                if (baseCmd == "/enemy" && subCmd == "spawn")
+                {
+                    foreach (MobType mob in MobSpawner.Instance.allMobs)
+                    {
+                        if (mob != null && mob.name.ToLower().StartsWith(typedSearch))
+                        {
+                            ___suggestedText = parts[0] + " " + parts[1] + " " + mob.name;
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            return true; // Let Muck's original autocomplete run if no context matches
         }
     }
 

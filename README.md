@@ -7,6 +7,13 @@
 
 Forget vanilla limitations. This mod is a raw, uncensored, and dangerously powerful command suite that bends Muck's engine until it submits to your will. Want to force absurd enemy hordes, multiply physical boss drops, freeze time, or turn every chest free? You can literally do whatever the hell you want—including mechanics the game's core engine was clearly never designed to handle. Built on pure zero-lag Harmony patches for total godhood over player stats, mob scaling, chest mechanics, and item spawning.
 
+> **CRITICAL VERSION 2.1.0 AUTOCOMPLETE UPDATE:**
+> This update brings a massive, game-changing upgrade to the chat console's usability. We have developed and implemented a fully **Context-Aware Autocomplete System using the `Tab` key**.
+> - Typing `/` and pressing `Tab` automatically suggests all main commands.
+> - Typing a main command followed by a space (e.g., `/player `) and pressing `Tab` suggests only relevant sub-commands.
+> - Typing `/powerup spawn `, `/powerup give `, or `/items give ` and pressing `Tab` will **dynamically read Muck's active RAM database to autocomplete the exact names of powerups and items**! No more typing complex names blindly.
+> - **Other 2.1.0 Fixes:** We integrated **Free Villager Trades** into the `/free` command ($0 cost), made the `/items give` command automatically default to `1` item if the amount argument is omitted (even with trailing spaces), and patched `/kill` with a safe `/kill help` screen to prevent you from accidentally committing suicide while checking command options (yes, I know you did it, you're welcome).
+
 > **CRITICAL VERSION 2.0.0 OVERHAUL:**
 > This update completely rewrote the core command architecture. Old standalone commands (`/pmult`, `/mobmult`, `/pdrop`, `/speed`, `/dmg`) are DEPRECATED. 
 > The entire suite has been unified into clean, organized sub-command categories: `/player`, `/enemy`, `/powerup`, and `/items`. Check the updated reference tables below before typing commands blind!
@@ -14,6 +21,8 @@ Forget vanilla limitations. This mod is a raw, uncensored, and dangerously power
 > **Developer Note:**
 > Born out of necessity because I wanted to develop a serious gameplay overhaul for Muck, but needed a proper runtime debugging tool first. Entirely vibe-coded in about 10 hours. It works, it fixes vanilla engine quirks, and it gives you absolute power. Deal with it.
 
+> **Future Outlook:**
+> This will potentially be the final update for this mod. I am currently rebuilding "ItemChoice" by *ThatWugg* from scratch due to its inherent UI and logic limitations when adding custom powerups. Soon, I will release a modified, fully compatible version of it along with a dedicated helper API library so I can finally begin development on my upcoming, serious content overhaul mod.
 ---
 
 ## In-Game Chat Commands

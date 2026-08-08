@@ -1,6 +1,6 @@
 {
   "name": "DanisNightmare",
-  "version_number": "2.0.0",
+  "version_number": "2.1.1",
   "website_url": "https://github.com/PlinKuuu/DanisNightmare",
   "description": "Bend Muck's engine to your absolute will. Complete command suite for player stats, mob scaling, physical powerup multipliers, item spawning, peaceful mode, and time travel.",
   "dependencies": [

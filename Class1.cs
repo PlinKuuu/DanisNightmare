@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace MuckDebugMod
 {
-    [BepInPlugin("com.plinkuuu.danisnightmare", "Dani's Nightmare", "2.1.0")]
+    [BepInPlugin("com.plinkuuu.danisnightmare", "Dani's Nightmare", "2.1.1")]
     public class Plugin : BaseUnityPlugin
     {
         // Debug state variables

@@ -1,12 +1,13 @@
 ﻿using BepInEx;
 using HarmonyLib;
-using UnityEngine;
 using System;
 using System.Collections.Generic;
+using System.Data.SqlTypes;
+using UnityEngine;
 
 namespace MuckDebugMod
 {
-    [BepInPlugin("com.plinkuuu.danisnightmare", "Dani's Nightmare", "2.1.1")]
+    [BepInPlugin("com.plinkuuu.danisnightmare", "Dani's Nightmare", "2.1.2")]
     public class Plugin : BaseUnityPlugin
     {
         // Debug state variables
@@ -270,7 +271,7 @@ namespace MuckDebugMod
                 ExecuteItemsCommand(subCommand, parts, message);
                 return;
             }
-            ChatBox.Instance.SendMessage("<color=red>[DANIS_NIGHTMARE] Unknown command. Commands: /free, /spawnchest, /peaceful, /setday, /setnight, /kill, /enemy, /item, /powerup, /player, /god, /items<color=white>");
+            ChatBox.Instance.SendMessage("<color=red>[DANIS_NIGHTMARE] Unknown command. Commands: /free, /spawnchest, /peaceful, /setday, /setnight, /kill, /enemy, /item, /powerup, /player, /god, /items, /structmult<color=white>");
         }
 
 
@@ -1033,8 +1034,7 @@ namespace MuckDebugMod
             string baseCommand = parts[0].ToLower();
 
             // List of our custom debug commands to intercept
-            List<string> customCommands = new List<string> { "/free", "/god", "/peaceful", "/kill", "/setday", "/setnight", "/spawnchest", "/player", "/powerup", "/items", "/enemy" };
-
+            List<string> customCommands = new List<string> { "/free", "/god", "/peaceful", "/kill", "/setday", "/setnight", "/spawnchest", "/player", "/powerup", "/items", "/item", "/enemy", "/structmult" };
             if (customCommands.Contains(baseCommand))
             {
                 Plugin.ProcessDebugCommand(message);
@@ -1043,21 +1043,6 @@ namespace MuckDebugMod
             return true; // Let Muck's native commands (/seed, /debug, /ping, /kick) run normally
         }
     }
-
-    // PATCH 33: Hijacks the native chat notification when picking up a powerup to display the custom count
-    [HarmonyPatch(typeof(ChatBox), "SendMessage", new Type[] { typeof(string) })]
-    public class Patch_ChatBox_PickupNotification
-    {
-        static void Prefix(ref string message)
-        {
-            if (message.StartsWith("Picked up ") && Plugin.powerupMultiplier > 1)
-            {
-                // Replaces "Picked up (Juice)" with "Picked up 50x (Juice)" on the fly
-                message = message.Replace("Picked up ", "Picked up " + Plugin.powerupMultiplier + "x ");
-            }
-        }
-    }
-
     // PARCHE 2: Forced drop quality hack
     [HarmonyPatch(typeof(ItemManager), "GetRandomPowerup")]
     public class ParcheSiempreNaranja
@@ -1385,7 +1370,7 @@ namespace MuckDebugMod
             }
         }
     }
-    // PATCH 18: Multiplies total spawned structures (shines, camps, ruins) at world generation
+    // PATCH 19: Multiplies total spawned structures (shines, camps, ruins) at world generation
     [HarmonyPatch(typeof(StructureSpawner), "Start")]
     public class Patch_StructureSpawner
     {
@@ -1396,7 +1381,7 @@ namespace MuckDebugMod
             MonoBehaviour.print("[DANIS_NIGHTMARE] Spawning " + __instance.nShrines + " total structures (Multiplier: x" + Plugin.structureMultiplier + ")");
         }
     }
-    // PATCH 19: Multiplies physical powerups spawned by chests on open
+    // PATCH 20: Multiplies physical powerups spawned by chests on open
     [HarmonyPatch(typeof(LootContainerInteract), "ServerExecute")]
     public class Patch_ChestPowerupCount
     {
@@ -1427,7 +1412,7 @@ namespace MuckDebugMod
             return false; // Bypasses Dani's original single-item spawn
         }
     }
-    // PATCH 20: Multiplies physical powerups dropped by combat shrines upon completion
+    // PATCH 21: Multiplies physical powerups dropped by combat shrines upon completion
     [HarmonyPatch(typeof(ShrineInteractable), "DropPowerup")]
     public class Patch_ShrineDrop
     {
@@ -1453,7 +1438,7 @@ namespace MuckDebugMod
             return false; // Bypasses Dani's original single-item spawn
         }
     }
-    // PATCH 21: Multiplies physical powerups dropped by bosses upon death
+    // PATCH 22: Multiplies physical powerups dropped by bosses upon death
     [HarmonyPatch(typeof(LootExtra), "BossLoot")]
     public class Patch_BossLoot
     {
@@ -1479,7 +1464,7 @@ namespace MuckDebugMod
             return false; // Bypasses Dani's original single-item spawn
         }
     }
-    // PATCH 22: Blocks hostile camp spawns during the day but keeps Woodmen and Cows
+    // PATCH 23: Blocks hostile camp spawns during the day but keeps Woodmen and Cows
     [HarmonyPatch(typeof(MobZone), "ServerSpawnEntity")]
     public class ParcheMobZone
     {
@@ -1501,7 +1486,7 @@ namespace MuckDebugMod
             return true;
         }
     }
-    // PATCH 23: Bypasses random nightly enemy waves without breaking the recursive spawning loop
+    // PATCH 24: Bypasses random nightly enemy waves without breaking the recursive spawning loop
     [HarmonyPatch(typeof(GameLoop), "CheckMobSpawns")]
     public class Patch_NightSpawnsBypass
     {
@@ -1520,7 +1505,7 @@ namespace MuckDebugMod
             return true;
         }
     }
-    // PATCH 24: Bypasses the mandatory nightly calendar bosses (e.g. Day 5 boss)
+    // PATCH 25: Bypasses the mandatory nightly calendar bosses (e.g. Day 5 boss)
     [HarmonyPatch(typeof(GameLoop), "StartBoss")]
     public class Patch_NightBossBypass
     {
@@ -1534,7 +1519,7 @@ namespace MuckDebugMod
             return true;
         }
     }
-    // PATCH 25: Dynamically scales the active mob cap in the world based on our multiplier
+    // PATCH 26: Dynamically scales the active mob cap in the world based on our multiplier
     [HarmonyPatch(typeof(GameLoop), "FindMobCap")]
     public class Patch_MobCap
     {
@@ -1544,7 +1529,7 @@ namespace MuckDebugMod
             GameLoop.currentMobCap = Mathf.RoundToInt((float)GameLoop.currentMobCap * Plugin.mobMultiplier);
         }
     }
-    // PATCH 26: Duplicates nightly spawned enemies using a fractional probability algorithm
+    // PATCH 27: Duplicates nightly spawned enemies using a fractional probability algorithm
     [HarmonyPatch(typeof(GameLoop), "SpawnMob")]
     public class Patch_SpawnMobMultiplier
     {
@@ -1575,7 +1560,7 @@ namespace MuckDebugMod
             return true; // Let the original SpawnMob run to spawn the main entity
         }
     }
-    // PATCH 27: Forces the villager trade prices to display as 0 in the UI when chests are free
+    // PATCH 28: Forces the villager trade prices to display as 0 in the UI when chests are free
     [HarmonyPatch(typeof(TradeUi), "SetTrade")]
     public class Patch_TradeUi_SetTrade
     {
@@ -1593,7 +1578,7 @@ namespace MuckDebugMod
             t.price = __state; // Instantly restores the original price in RAM
         }
     }
-    // PATCH 28: Forces the actual purchase transaction to cost 0 gold when chests are free
+    // PATCH 29: Forces the actual purchase transaction to cost 0 gold when chests are free
     [HarmonyPatch(typeof(TradeUi), "BuySell")]
     public class Patch_TradeUi_BuySell
     {
@@ -1612,7 +1597,7 @@ namespace MuckDebugMod
             ___trade.price = __state; // Instantly restores the original transaction price in RAM
         }
     }
-    // PATCH 29: Multiplies native enemy damage scaling dynamically
+    // PATCH 30: Multiplies native enemy damage scaling dynamically
     [HarmonyPatch(typeof(GameManager), "MobDamageMultiplier")]
     public class Patch_MobDamageMultiplier
     {
@@ -1622,7 +1607,7 @@ namespace MuckDebugMod
         }
     }
 
-    // PATCH 30: Multiplies native enemy health scaling dynamically
+    // PATCH 31: Multiplies native enemy health scaling dynamically
     [HarmonyPatch(typeof(GameManager), "MobHpMultiplier")]
     public class Patch_MobHpMultiplier
     {
@@ -1632,7 +1617,7 @@ namespace MuckDebugMod
         }
     }
 
-    // PATCH 31: Expands Muck's native autocomplete command list at startup
+    // PATCH 32: Expands Muck's native autocomplete command list at startup
     [HarmonyPatch(typeof(ChatBox), "Awake")]
     public class Patch_ChatBox_Autocomplete
     {
@@ -1643,7 +1628,7 @@ namespace MuckDebugMod
                 List<string> customCommands = new List<string>(__instance.commands);
 
                 // Add all of your custom main commands to the native list
-                string[] newCommands = { "free", "god", "peaceful", "kill", "setday", "setnight", "spawnchest", "player", "powerup", "items", "enemy" };
+                string[] newCommands = { "free", "god", "peaceful", "kill", "setday", "setnight", "spawnchest", "player", "powerup", "items", "item", "enemy", "structmult" };
                 customCommands.AddRange(newCommands);
 
                 __instance.commands = customCommands.ToArray();
@@ -1652,7 +1637,7 @@ namespace MuckDebugMod
         }
     }
 
-    // PATCH 32: Advanced Context-Aware Autocomplete Engine matching exact code.txt command names
+    // PATCH 33: Advanced Context-Aware Autocomplete Engine matching exact code.txt command names
     [HarmonyPatch(typeof(Commands), "PredictCommands")]
     public class Patch_Commands_Predict
     {
@@ -1685,8 +1670,7 @@ namespace MuckDebugMod
                 string typedCmd = parts[0].Substring(1).ToLower(); // Removes the "/" (e.g., "pl")
 
                 // Unified list of all vanilla and custom main commands
-                string[] allMainCommands = { "seed", "ping", "debug", "kill", "kick", "free", "god", "peaceful", "setday", "setnight", "spawnchest", "player", "powerup", "items", "enemy" };
-
+                string[] allMainCommands = { "seed", "ping", "debug", "kill", "kick", "free", "god", "peaceful", "setday", "setnight", "spawnchest", "player", "powerup", "items", "item", "enemy", "structmult" };
                 foreach (string cmd in allMainCommands)
                 {
                     if (cmd.StartsWith(typedCmd))
@@ -1797,5 +1781,17 @@ namespace MuckDebugMod
         }
     }
 
-
+    // PATCH 34: Hijacks the native chat notification when picking up a powerup to display the custom count
+    [HarmonyPatch(typeof(ChatBox), "SendMessage", new Type[] { typeof(string) })]
+    public class Patch_ChatBox_PickupNotification
+    {
+        static void Prefix(ref string message)
+        {
+            if (message.StartsWith("Picked up ") && Plugin.powerupMultiplier > 1)
+            {
+                // Replaces "Picked up (Juice)" with "Picked up 50x (Juice)" on the fly
+                message = message.Replace("Picked up ", "Picked up " + Plugin.powerupMultiplier + "x ");
+            }
+        }
+    }
 }

@@ -2,16 +2,16 @@
 
 [![BepInEx](https://img.shields.io/badge/BepInEx-5.4.1100-blue.svg)](https://github.com/BepInEx/BepInEx)
 [![Game](https://img.shields.io/badge/Game-Muck-orange.svg)](https://store.steampowered.com/app/1625450/Muck/)
-[![Version](https://img.shields.io/badge/Version-2.0.0-green.svg)](https://github.com/PlinKuuu/DanisNightmare)
+[![Version](https://img.shields.io/badge/Version-2.1.2-green.svg)](https://github.com/PlinKuuu/DanisNightmare)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Forget vanilla limitations. This mod is a raw, uncensored, and dangerously powerful command suite that bends Muck's engine until it submits to your will. Want to force absurd enemy hordes, multiply physical boss drops, freeze time, or turn every chest free? You can literally do whatever the hell you want—including mechanics the game's core engine was clearly never designed to handle. Built on pure zero-lag Harmony patches for total godhood over player stats, mob scaling, chest mechanics, and item spawning.
+Take complete control of Muck with an all-in-one debugging and cheat command suite. Spawn any item or enemy, multiply physical powerup drops, freeze time, adjust player stats, or turn on peaceful mode with zero lag. Built with Harmony runtime patches and packed with a full Tab-autocomplete chat console.
 
 > **CRITICAL VERSION 2.1.0 AUTOCOMPLETE UPDATE:**
 > This update brings a massive, game-changing upgrade to the chat console's usability. We have developed and implemented a fully **Context-Aware Autocomplete System using the `Tab` key**.
 > - Typing `/` and pressing `Tab` automatically suggests all main commands.
 > - Typing a main command followed by a space (e.g., `/player `) and pressing `Tab` suggests only relevant sub-commands.
-> - Typing `/powerup spawn `, `/powerup give `, or `/items give ` and pressing `Tab` will **dynamically read Muck's active RAM database to autocomplete the exact names of powerups and items**! No more typing complex names blindly.
+> - Typing `/powerup spawn `, `/powerup give `, `/enemy spawn `, or `/items give ` and pressing `Tab` will **dynamically read Muck's active RAM database to autocomplete the exact names of powerups and items**! No more typing complex names blindly.
 > - **Other 2.1.0 Fixes:** We integrated **Free Villager Trades** into the `/free` command ($0 cost), made the `/items give` command automatically default to `1` item if the amount argument is omitted (even with trailing spaces), and patched `/kill` with a safe `/kill help` screen to prevent you from accidentally committing suicide while checking command options (yes, I know you did it, you're welcome).
 
 > **CRITICAL VERSION 2.0.0 OVERHAUL:**
@@ -63,7 +63,7 @@ Open the in-game chat (`Enter`) and type any command. Commands process locally a
 | :--- | :--- |
 | `/items forcerng` | Toggle Force RNG (Guarantees 100% max drop chance for all loot tables). |
 | `/items drop <multiplier>` | Multiply resource, tree, ore, and mob dropped item stack quantities. |
-| `/items give <id_or_name> <amount>` | Give any item (Supports full item names with spaces; auto-handles inventory slots). |
+| `/items give <id_or_name> [amount]` | Give any item (Supports full item names with spaces; auto-handles inventory slots). |
 | `/free` | Toggle Free Chests & Trades ($0 cost for chests & Villager trades + custom interact text). |
 | `/spawnchest <white/blue/orange>` | Materialize a fully interactive chest of chosen quality right at your feet. |
 
@@ -84,7 +84,7 @@ Open the in-game chat (`Enter`) and type any command. Commands process locally a
 4. Launch the game through Steam, open the chat (`Enter`), and enjoy your absolute power.
 
 ### Mod Compatibility Notes
-- **Incompatible:** This mod is **NO LONGER COMPATIBLE** with the mod `giveitems` by *Davidud*, as Dani's Nightmare now natively includes a superior item injection system (`/items give`).
+- **Replaces / Redundant:** This mod makes `giveitems` by *Davidud* obsolete, as Dani's Nightmare provides a superior item injection system (`/items give` supports natural spaces without underscores, Tab autocompletion, optional amounts, and powerup injection).
 - **Compatible:** Remains fully compatible with `ItemChoice` by *ThatWugg*.
 
 ---
